@@ -21,7 +21,9 @@ function HttpApp() {
 }
 
 HttpApp.prototype.start = function (port, modem) {
-    this.app.listen(port);
+    this.app.listen(port, function () {
+        console.log('Server started at port %d', port);
+    });
     this.modem_serial = modem;
     this.getModemInfo();
     this.setRequestHandlers();
@@ -63,6 +65,7 @@ HttpApp.prototype.setRequestHandlers = function () {
             function (balance) {
                 response += 'Balance: ' + balance.value + 'rub. was at ' + formatTime(balance.ts);
                 res.send(response);
+                res.end();
             }
         );
 
