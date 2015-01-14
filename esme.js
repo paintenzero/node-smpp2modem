@@ -124,7 +124,7 @@ ESME.prototype.sendUSSDResponse = function(ussdNum, text, refId) {
     source_addr: ussdNum,
     source_addr_ton: 0,
     source_addr_npi: 1,
-    destination_addr: this.modemManager.phoneNumber,
+    destination_addr: this.modemManager.IMSI,
     destination_addr_ton: 1,
     destination_addr_npi: 1,
     short_message: text,
@@ -158,7 +158,7 @@ ESME.prototype.handleDeliveryReport = function (message, report) {
     source_addr: message.destination,
     source_addr_ton: parseInt(message.destination_type, 16) === 0x91 ? 1 : 0 ,
     source_addr_npi: 1,
-    destination_addr: this.modemManager.phoneNumber,
+    destination_addr: this.modemManager.IMSI,
     dest_addr_ton: 1,
     dest_addr_npi: 1,
     receipted_message_id: this.createMessageId(message.id),
@@ -193,7 +193,7 @@ ESME.prototype.sessionEquals = function (sess) {
 };
 
 ESME.prototype.createMessageId = function (messageId) {
-  return this.modemManager.phoneNumber + '_' + messageId;
+  return this.modemManager.IMSI + '_' + messageId;
 };
 /**
  * Passes incoming message to ESME
@@ -203,7 +203,7 @@ ESME.prototype.passMessage = function (message) {
     source_addr: message.sender,
     source_addr_ton: message.sender_type === '91' ? 1 : 0,
     source_addr_npi: 1,
-    destination_addr: this.modemManager.phoneNumber,
+    destination_addr: this.modemManager.IMSI,
     destination_addr_ton: 1,
     destination_addr_npi: 1,
     short_message: message.text,
