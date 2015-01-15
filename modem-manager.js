@@ -12,11 +12,11 @@ function ModemManager(opts, storage) {
 
   var phoneNumber = opts.phone_number;
   delete opts.phone_number;
-
   var modem = new Modem(opts);
   modem.on('message', this.onSMS.bind(this));
   modem.on('report', this.onStatusReport.bind(this));
   modem.on('disconnect', this.onDisconnect.bind(this));
+  modem.on('error', this.onError.bind(this));
 
   this.__defineGetter__('modem', function () { return modem; });
   this.__defineGetter__('storage', function () { return storage; });
@@ -103,8 +103,13 @@ ModemManager.prototype.onStatusReport = function (report) {
  * Callback for modem disconnect
  */
 ModemManager.prototype.onDisconnect = function () {
-  console.error('Modem disconnected!!!');
-  process.exit();
+  this.emit('disconnect');
+};
+/**
+ * Callback for modem error
+ */
+ModemManager.prototype.onError = function (err) {
+  this.emit('error', err);
 };
 /**
  * Gets modem's info

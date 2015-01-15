@@ -130,20 +130,36 @@ ESME.prototype.submitSM = function (pdu) {
  * Send report that sending SMS failed
  */
 ESME.prototype.sendFail = function (message) {
-  this.handleDeliveryReport(message, {status: 8});
+  this.handleDeliveryReport(message, {status: '99'});
 };
 /**
  * Pass delivery report to ESME
  */
 ESME.prototype.handleDeliveryReport = function (message, report) {
-  report.status = parseInt(report.status, 16);
+  if (report.status[0] === '0') {
+    status = this.REPORT_STATUSES.DELIVERED;
+    textStatus = 'DELIVRD';
+  } else if (report.status[0] === '2') {
+    status = this.REPORT_STATUSES.ENROUTE;
+    textStatus = 'ENROUTE';
+  } else if (report.status[0] === '4') {
+    status = this.REPORT_STATUSES.EXPIRED;
+    textStatus = 'EXPIRED';
+  } else if (report.status[0] === '9') {
+    status = this.REPORT_STATUSES.MODEM;
+    textStatus = 'REJECTD';
+  } else {
+    status = this.REPORT_STATUSES.UNKNOWN;
+    textStatus = 'UNKNOWN';
+  }
+  
   var sm = [
     'id:' + this.createMessageId(message.id),
     'sub:001',
     'dvlrd:001',
     'submit date:' + this.makeSMPP_TS(message.submit_ts),
     'done date:' + this.makeSMPP_TS(message.delivered_ts),
-    'stat:' + report.status === 0 ? 'DELIVRD' : 'REJECTD',
+    'stat:' + textStatus,
     'err:000',
     'text:'// + message.message.substr(0, 20)
   ];
@@ -161,9 +177,19 @@ ESME.prototype.handleDeliveryReport = function (message, report) {
     dest_addr_ton: 1,
     dest_addr_npi: 1,
     receipted_message_id: this.createMessageId(message.id),
-    message_state: report.status,
+    message_state: status,
     short_message: sm.join(' ')
   });
+};
+/**
+ * Statuses for delivery reports
+ */
+ESME.prototype.REPORT_STATUSES = {
+  ENROUTE : 1,
+  DELIVERED : 2,
+  EXPIRED : 3,
+  UNKNOWN : 7,
+  MODEM : 8
 };
 /**
  * Forms SMPP timestamp

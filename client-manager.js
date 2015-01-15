@@ -43,7 +43,7 @@ ClientsManager.prototype.handleSendFailure = function(message) {
 
 ClientsManager.prototype.handleReport = function(message, report) {
   this.clients.forEach(function (client) {
-    client.handleDeliveryReport(message, report.status);
+    client.handleDeliveryReport(message, report);
   });
 };
 
