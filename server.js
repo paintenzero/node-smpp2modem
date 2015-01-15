@@ -25,15 +25,6 @@ var opts = {
 if (argv.notify_port) {
   opts.notify_port = argv.notify_port;
 }
-if (argv.balance_ussd) {
-  opts.balance_ussd = argv.balance_ussd;
-  if (argv.dollar_regexp) {
-    opts.dollar_regexp = new RegExp(argv.dollar_regexp);
-  }
-  if (argv.cents_regexp) {
-    opts.cents_regexp = new RegExp(argv.cents_regexp);
-  }
-}
 if (argv.send_failure_timeout) {
   opts.failure_timeout = argv.send_failure_timeout;
 }
@@ -45,6 +36,7 @@ var modemMan = new ModemManager(opts, storage);
 
 modemMan.start().then(
   function () {
+    storage.setIMSI(modemMan.IMSI);
     var clientsManager = new ClientsManager(storage, modemMan);
     var server = smpp.createServer(function (session) {
       clientsManager.addClientSession(session);

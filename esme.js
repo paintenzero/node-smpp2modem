@@ -21,6 +21,7 @@ function ESME(session, storage, modemManager) {
     session.send(pdu.response());
     session.close();
   });
+  this.sendSYSInterval = null;
 }
 /**
  * bind_transceiver handler
@@ -31,6 +32,8 @@ ESME.prototype.bindTransceiver = function (pdu) {
     function () {
       this.session.send(pdu.response());
       this.session.resume();
+      this.sendSYSInterval = setInterval(this.sendSYS.bind(this), 60000);
+      this.sendSYS();
     }.bind(this),
     function (err) {
       console.error('Authorization with', pdu.system_id, pdu.password, 'failed', err);
@@ -58,7 +61,7 @@ ESME.prototype.checkUserPass = function (systemId, password) {
   return deferred.promise;
 };
 /**
- * 
+ * Handler for submit-sm command
  */
 ESME.prototype.submitSM = function (pdu) {
   if (!this.authorized) {
@@ -123,25 +126,15 @@ ESME.prototype.submitSM = function (pdu) {
     );
   }
 };
-
-ESME.prototype.sendUSSDResponse = function (ussdNum, text) {
-  this.session.deliver_sm({
-    service_type: 'USSD',
-    source_addr: ussdNum,
-    source_addr_ton: 0,
-    source_addr_npi: 1,
-    destination_addr: this.modemManager.IMSI,
-    destination_addr_ton: 1,
-    destination_addr_npi: 1,
-    short_message: text,
-    data_coding: this.modemManager.modem.isGSMAlphabet(text) ? 0 : 8
-  });
-};
-
+/**
+ * Send report that sending SMS failed
+ */
 ESME.prototype.sendFail = function (message) {
   this.handleDeliveryReport(message, {status: 8});
 };
-
+/**
+ * Pass delivery report to ESME
+ */
 ESME.prototype.handleDeliveryReport = function (message, report) {
   report.status = parseInt(report.status, 16);
   var sm = [
@@ -172,7 +165,9 @@ ESME.prototype.handleDeliveryReport = function (message, report) {
     short_message: sm.join(' ')
   });
 };
-
+/**
+ * Forms SMPP timestamp
+ */
 ESME.prototype.makeSMPP_TS = function (date) {
   var jsDate;
   if (date) {
@@ -193,11 +188,15 @@ ESME.prototype.makeSMPP_TS = function (date) {
   str += n < 0 ? '+' : '-';
   return str;
 };
-
+/**
+ * Returns true if ESME's session equals passed session
+ */
 ESME.prototype.sessionEquals = function (sess) {
   return (this.session === sess);
 };
-
+/**
+ * Forms message id
+ */
 ESME.prototype.createMessageId = function (messageId) {
   return this.modemManager.IMSI + '_' + messageId;
 };
@@ -215,6 +214,40 @@ ESME.prototype.passMessage = function (message) {
     short_message: message.text,
     data_coding: message.dcs
   });
+};
+/**
+ * Sends USSD response to ESME
+ */
+ESME.prototype.sendUSSDResponse = function (ussdNum, text) {
+  this.session.deliver_sm({
+    service_type: 'USSD',
+    source_addr: ussdNum,
+    source_addr_ton: 0,
+    source_addr_npi: 1,
+    destination_addr: this.modemManager.IMSI,
+    destination_addr_ton: 1,
+    destination_addr_npi: 1,
+    short_message: text,
+    data_coding: this.modemManager.modem.isGSMAlphabet(text) ? 0 : 8
+  });
+};
+
+ESME.prototype.sendSYS = function () {
+  this.modemManager.getSignal().then(
+    function (info) {
+      this.session.deliver_sm({
+        service_type: 'SYS',
+        source_addr: this.modemManager.IMSI,
+        source_addr_ton: 0,
+        source_addr_npi: 1,
+        destination_addr: this.modemManager.IMSI,
+        destination_addr_ton: 0,
+        destination_addr_npi: 1,
+        short_message: "Signal: " + info.db,
+        data_coding: 7
+      });
+    }.bind(this)
+  );
 };
 
 module.exports = ESME;

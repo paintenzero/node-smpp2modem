@@ -8,8 +8,6 @@ function ModemManager(opts, storage) {
   // Call the super constructor.
   EventEmitter.call(this);
 
-  opts.onDisconnect = this.onDisconnect.bind(this);
-
   this.options = {};
 
   var phoneNumber = opts.phone_number;
@@ -18,7 +16,7 @@ function ModemManager(opts, storage) {
   var modem = new Modem(opts);
   modem.on('message', this.onSMS.bind(this));
   modem.on('report', this.onStatusReport.bind(this));
-
+  modem.on('disconnect', this.onDisconnect.bind(this));
 
   this.__defineGetter__('modem', function () { return modem; });
   this.__defineGetter__('storage', function () { return storage; });
@@ -103,7 +101,7 @@ ModemManager.prototype.onStatusReport = function (report) {
 /**
  * Callback for modem disconnect
  */
-ModemManager.prototype.onDisconnect = function (modem) {
+ModemManager.prototype.onDisconnect = function () {
   console.error('Modem disconnected!!!');
   process.exit();
 };
@@ -146,10 +144,12 @@ ModemManager.prototype.identify = function () {
 ModemManager.prototype.parseMessages = function (messages) {
   var promises = [], k;
   for (k in messages) {
-    if (messages[k].tpdu_type === 'SMS-STATUS-REPORT') {
-      this.onStatusReport(messages[k]);
-    } else if (messages[k].tpdu_type === 'SMS-DELIVER') {
-      promises.push(this.storage.addInboxMessage(messages[k]));
+    if (messages.hasOwnProperty(k)) {
+      if (messages[k].tpdu_type === 'SMS-STATUS-REPORT') {
+        this.onStatusReport(messages[k]);
+      } else if (messages[k].tpdu_type === 'SMS-DELIVER') {
+        promises.push(this.storage.addInboxMessage(messages[k]));
+      }
     }
   }
   return Q.all(promises);
@@ -160,6 +160,12 @@ ModemManager.prototype.parseMessages = function (messages) {
  */
 ModemManager.prototype.queueMessage = function (message) {
   return this.sendQueue.add(message);
+};
+/**
+ *
+ */
+ModemManager.prototype.getSignal = function () {
+  return Q.ninvoke(this.modem, "getSignalStrength");
 };
 
 module.exports.ModemManager = ModemManager;
