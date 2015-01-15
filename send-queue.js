@@ -74,7 +74,7 @@ SendQueue.prototype.sendNext = function () {
           this.queue.splice(0, 1);
           Q.nextTick(this.sendNext.bind(this));
           this.modemManager.emit('send_fail', message);
-          this.storage.giveUpSendingMessage(message).fail(
+          this.storage.giveUpSendingMessage(message, err).fail(
             function (err) {
               console.error('Failure while giving up ', err);
             }

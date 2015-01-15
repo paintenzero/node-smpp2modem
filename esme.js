@@ -244,7 +244,7 @@ ESME.prototype.sendSYS = function () {
         destination_addr_ton: 0,
         destination_addr_npi: 1,
         short_message: "Signal: " + info.db,
-        data_coding: 7
+        data_coding: 0
       });
     }.bind(this)
   );

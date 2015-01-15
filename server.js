@@ -36,7 +36,6 @@ var modemMan = new ModemManager(opts, storage);
 
 modemMan.start().then(
   function () {
-    storage.setIMSI(modemMan.IMSI);
     var clientsManager = new ClientsManager(storage, modemMan);
     var server = smpp.createServer(function (session) {
       clientsManager.addClientSession(session);

@@ -90,8 +90,8 @@ Storage.prototype.markFailure = function (message) {
   return Q.ninvoke(this.db, "run", "UPDATE `outbox` SET `failures` = `failures` + 1 WHERE `id` = ?", [message.id]);
 };
 
-Storage.prototype.giveUpSendingMessage = function (message) {
-  return Q.ninvoke(this.db, "run", "INSERT INTO `sentitems` (`id`, `destination`, `destination_type`, `message`, `esme_id`, `parts`, `submit_ts`, `sent_ts`, `report_requested`, `status`, `imsi`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [
+Storage.prototype.giveUpSendingMessage = function (message, reason) {
+  return Q.ninvoke(this.db, "run", "INSERT INTO `sentitems` (`id`, `destination`, `destination_type`, `message`, `esme_id`, `parts`, `submit_ts`, `sent_ts`, `report_requested`, `status`, `imsi`, `error`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [
     message.id,
     message.destination,
     message.destination_type,
@@ -102,7 +102,8 @@ Storage.prototype.giveUpSendingMessage = function (message) {
     '0',
     message.report_requested,
     'SendingError',
-    this.IMSI
+    this.IMSI,
+    reason
   ]).then(
     function () {
       return this.deleteOutboxMessage(message);
@@ -191,16 +192,17 @@ Storage.prototype.getPartsWithStatus = function (msgId, number) {
   return deferred.promise;
 };
 
-Storage.prototype.addInboxMessage = function (message) {
+Storage.prototype.addInboxMessage = function (message, smsc_tpdu) {
   var deferred = Q.defer();
-  this.db.run("INSERT INTO `inbox` (`sender`, `sender_type`, `text`, `received_ts`, `smsc`, `coding`, `imsi`) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+  this.db.run("INSERT INTO `inbox` (`sender`, `sender_type`, `text`, `received_ts`, `smsc`, `coding`, `imsi`, `smsc_tpdu`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
     message.sender,
     message.sender_type,
     message.text,
     new Date(message.time).getTime() / 1000,
     message.smsc,
     message.dcs,
-    this.IMSI
+    this.IMSI,
+    smsc_tpdu
   ], function (err) {
     if (null === err) {
       deferred.resolve();

@@ -34,6 +34,7 @@ ModemManager.prototype.start = function () {
     this.identify().then(
       function (info) {
         this.modemInfo = info;
+        this.storage.setIMSI(this.IMSI);
         return Q.ninvoke(this.modem, "getAllSMS");
       }.bind(this)
     ).then(
@@ -60,7 +61,7 @@ ModemManager.prototype.start = function () {
  * Callback for modem message receive
  */
 ModemManager.prototype.onSMS = function (message) {
-  this.storage.addInboxMessage(message);
+  this.storage.addInboxMessage(message, message.smsc_tpdu);
   this.emit('message', message);
 };
 /**
@@ -148,7 +149,7 @@ ModemManager.prototype.parseMessages = function (messages) {
       if (messages[k].tpdu_type === 'SMS-STATUS-REPORT') {
         this.onStatusReport(messages[k]);
       } else if (messages[k].tpdu_type === 'SMS-DELIVER') {
-        promises.push(this.storage.addInboxMessage(messages[k]));
+        promises.push(this.storage.addInboxMessage(messages[k], messages[k].smsc_tpdu));
       }
     }
   }
