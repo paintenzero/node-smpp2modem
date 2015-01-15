@@ -84,9 +84,7 @@ ESME.prototype.submitSM = function (pdu) {
         if (!err) {
           this.sendUSSDResponse(pdu.short_message.message, data);
         } else {
-          this.session.send(pdu.response({
-            command_status: smpp.ESME_RSUBMITFAIL
-          }));
+          this.sendUSSDResponse(pdu.short_message.message, 'Error getting USSD');
         }
       }.bind(this));
     }
