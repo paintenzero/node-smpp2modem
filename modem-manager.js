@@ -104,8 +104,8 @@ ModemManager.prototype.onStatusReport = function (report) {
  * Callback for modem disconnect
  */
 ModemManager.prototype.onDisconnect = function (modem) {
-  console.err('Modem disconnected!!!');
-
+  console.error('Modem disconnected!!!');
+  process.exit();
 };
 /**
  * Gets modem's info

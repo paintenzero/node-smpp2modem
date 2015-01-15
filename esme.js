@@ -68,19 +68,25 @@ ESME.prototype.submitSM = function (pdu) {
     return;
   }
   if (pdu.service_type === 'USSD') {
-    this.modemManager.modem.getUSSD (pdu.destination_addr, function(err, data) {
-      if (!err) {
-        var rnd = Math.floor (Math.random() * (10000 - 1000) + 1000);
-        this.session.send(pdu.response({
-          message_id: this.createMessageId(rnd)
-        }));
-        this.sendUSSDResponse(pdu.destination_addr, data, rnd);
-      } else {
-        this.session.send(pdu.response({
-          command_status: smpp.ESME_RSUBMITFAIL
-        }));
-      }
-    }.bind(this));
+    if (!pdu.short_message) {
+      this.session.send(pdu.response({
+        command_status: smpp.ESME_RSUBMITFAIL
+      }));
+    } else {
+      var rnd = Math.floor(Math.random() * (10000 - 1000) + 1000);
+      this.session.send(pdu.response({
+        message_id: this.createMessageId(rnd)
+      }));
+      this.modemManager.modem.getUSSD(pdu.short_message.message, function (err, data) {
+        if (!err) {
+          this.sendUSSDResponse(pdu.short_message.message, data);
+        } else {
+          this.session.send(pdu.response({
+            command_status: smpp.ESME_RSUBMITFAIL
+          }));
+        }
+      }.bind(this));
+    }
     return;
   }
 
@@ -118,7 +124,7 @@ ESME.prototype.submitSM = function (pdu) {
   }
 };
 
-ESME.prototype.sendUSSDResponse = function(ussdNum, text, refId) {
+ESME.prototype.sendUSSDResponse = function (ussdNum, text) {
   this.session.deliver_sm({
     service_type: 'USSD',
     source_addr: ussdNum,
@@ -156,7 +162,7 @@ ESME.prototype.handleDeliveryReport = function (message, report) {
     sm_default_msg_id: 0,
     esm_class: 0x4,
     source_addr: message.destination,
-    source_addr_ton: parseInt(message.destination_type, 16) === 0x91 ? 1 : 0 ,
+    source_addr_ton: parseInt(message.destination_type, 16) === 0x91 ? 1 : 0,
     source_addr_npi: 1,
     destination_addr: this.modemManager.IMSI,
     dest_addr_ton: 1,

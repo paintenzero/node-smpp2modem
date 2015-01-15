@@ -7,7 +7,6 @@ var ModemManager = require('./modem-manager').ModemManager;
 
 
 var argv = rc('smpp2modem', {
-  http_port: 80,
   smpp_port: 2775,
   main_port: '/dev/ttyUSB0',
   db_file: 'smsc.sqlite',
