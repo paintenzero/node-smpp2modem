@@ -10,7 +10,7 @@ function SendQueue(modemManager, storage, options) {
   this.queue = [];
 }
 
-SendQueue.prototype.checkOutbox = function(first_argument) {
+SendQueue.prototype.checkOutbox = function () {
   this.storage.getOutboxMessages().then(
     function (results) {
       if (results.length > 0) {
@@ -70,7 +70,7 @@ SendQueue.prototype.sendNext = function () {
         } else {
           ++this.queue[0].failures;
         }
-        if (message.failures >= this.maxFailures) {
+        if (parseInt(message.destination_type, 16) === 0x81 || message.failures >= this.maxFailures) {
           this.queue.splice(0, 1);
           Q.nextTick(this.sendNext.bind(this));
           this.modemManager.emit('send_fail', message);
@@ -87,8 +87,6 @@ SendQueue.prototype.sendNext = function () {
             }
           );
         }
-
-        //TODO: mark failure...
       }.bind(this)
     );
   }

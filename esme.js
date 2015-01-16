@@ -1,5 +1,6 @@
 var smpp = require('smpp');
 var Q = require('q');
+var rufus = require('rufus');
 
 function ESME(session, storage, modemManager) {
   this.session = session;
@@ -70,6 +71,7 @@ ESME.prototype.submitSM = function (pdu) {
     }));
     return;
   }
+
   if (pdu.service_type === 'USSD') {
     if (!pdu.short_message) {
       this.session.send(pdu.response({
