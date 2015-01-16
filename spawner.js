@@ -1,25 +1,48 @@
-#!/usr/local/bin/node
-var fs      = require('fs-extra');
-var path    = require('path');
-var Q       = require('q');
-var rufus   = require('rufus');
-var spawn   = require('child_process').spawn;
-var Modem   = require('gsm-modem');
+#!/usr/bin/env node
+var fs          = require('fs-extra');
+var path        = require('path');
+var Q           = require('q');
+var rufus       = require('rufus');
+var spawn       = require('child_process').spawn;
+var Modem       = require('gsm-modem');
+var is_running  = require('is-running');
 
 var SERIALS_DIR = '/sys/bus/usb-serial/devices/';
 var SERVER_PATH = './server.js';
 var LOGS_DIR = './logs';
 var ORIG_DATABASE = 'smsc.sqlite';
 var DB_DIR = './db';
-var processes = {}; // {smpp:process}
+var PID_DIR = './pids';
 
+if (!fs.existsSync(LOGS_DIR)) {
+  fs.mkdirSync(LOGS_DIR);
+}
+if (!fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR);
+}
+if (!fs.existsSync(PID_DIR)) {
+  fs.mkdirSync(PID_DIR);
+}
+
+tmpSMPPPorts = {};
 /**
  * Returns first available SMPP port
  */
 function GetFreeSMPPPort() {
+  var busyPorts = tmpSMPPPorts;
+  var files = fs.readdirSync(PID_DIR), i;
+  for (i = files.length - 1; i >= 0; --i) {
+    if (path.extname(files[i]) === '.port') {
+      var pid = parseInt(path.basename(files[i], '.port'), 10);
+      if (is_running(pid)) {
+        var port = parseInt(fs.readFileSync(PID_DIR + path.sep + files[i]).toString(), 10);
+        busyPorts[port] = 1;
+      }
+    }
+  }
   var smppPort = 2775;
   for (smppPort; smppPort < 5000; ++smppPort) {
-    if (!processes[smppPort]) { break; }
+    if (!busyPorts[smppPort]) { break; }
   }
   return smppPort;
 }
@@ -29,14 +52,14 @@ function GetFreeSMPPPort() {
 function doSpawn(opts) {
   var runLog = LOGS_DIR + path.sep + 'run-' + opts.imsi + '.log';
   var errLog = LOGS_DIR + path.sep + 'error-' + opts.imsi + '.log';
-  var pargs = [SERVER_PATH, '--config', 'cfg.ini', '--modem', opts.ports.join(','), '--sqlite', opts.dbFile, '--smpp', opts.smpp];
+  var pargs = [SERVER_PATH, '--config', 'cfg.ini', '--modem', opts.ports.join(','), '--sqlite', opts.dbFile, '--smpp', opts.smpp, '--pid', PID_DIR];
   rufus.debug('Spawn process with args: ', pargs.join(' '));
   var child = spawn(process.argv[0], pargs, {
+    // stdio: 'inherit'
     stdio: [null, fs.openSync(runLog, "w"), fs.openSync(errLog, "w")]
   });
   child.on ('exit', function (code, signal) {
     rufus.error('child %d exited!', opts.smpp);
-    delete processes[opts.smpp];
   });
   
   return child;
@@ -44,41 +67,43 @@ function doSpawn(opts) {
 
 
 function SpawnProcess(ports) {
-  var opts = {ports:ports};
+  var opts = {
+    ports: ports,
+    smpp: GetFreeSMPPPort()
+  };
+  tmpSMPPPorts[opts.smpp] = 1;
+
   var modem = new Modem({
     ports: opts.ports
   });
   modem.connect(function (err) {
     if (err) {
       rufus.error('Modem start failed: %s', err.message);
+      delete tmpSMPPPorts[opts.smpp];
       return;
     }
     modem.getIMSI(function(err, imsi) {
       if (err) {
         rufus.error("Unable to get IMSI: %s", err.message);
+        delete tmpSMPPPorts[opts.smpp];
         return;
       }
       opts.imsi = imsi;
-      rufus.info('IMSI: ', imsi);
-      modem.close();
+      rufus.info('IMSI: %s port: %s device: %s', imsi, opts.smpp, opts.ports);
+      modem.close(function () {
 
-      opts.smpp = GetFreeSMPPPort();
-
-      opts.dbFile = DB_DIR + path.sep + opts.imsi+'.sqlite';
-      var proc;
-      fs.exists(opts.dbFile, function(exists) {
-        if (!exists) {
-          fs.copy (ORIG_DATABASE, opts.dbFile, function () {
+        opts.dbFile = DB_DIR + path.sep + opts.imsi+'.sqlite';
+        var proc;
+        fs.exists(opts.dbFile, function(exists) {
+          if (!exists) {
+            fs.copy (ORIG_DATABASE, opts.dbFile, function () {
+              proc = doSpawn(opts);
+            });
+          } else {
             proc = doSpawn(opts);
-          });
-        } else {
-          proc = doSpawn(opts);
-        }
-        processes[opts.smpp] = {
-          ports: opts.ports,
-          smpp: opts.smpp,
-          proc: proc
-        };
+          }
+          delete tmpSMPPPorts[opts.smpp];
+        });
       });
 
     });
@@ -96,13 +121,28 @@ setInterval (function () {
     function (devices) {
       var d, smpp;
       for (d in devices) {
-       try{ 
-        var running = false;
-        for (smpp in processes) {
-          if (processes.hasOwnProperty(smpp)) {
-            if (portsEqual(processes[smpp].ports, devices[d])) {
-              rufus.debug('modem %s is running on port %s', devices[d][0], smpp);
-              running = true;
+        var running = false, smppPort = 0;
+        //Search for pid file first
+        var files = fs.readdirSync(PID_DIR);
+        var i, ii = files.length, j, jj = devices[d].length;
+        for (i = ii - 1; i>=0; --i) {
+          if (running) { break; }
+          var fileBaseName = path.basename(files[i], '.pid');
+          for (j = jj - 1; j>=0; --j) {
+            if (path.basename(devices[d][j]) === fileBaseName) {
+              var normalPath = path.normalize(PID_DIR + path.sep + files[i]);
+              rufus.debug('Found pid for port %s', devices[d][j]);
+              var pid = parseInt(fs.readFileSync(normalPath).toString(), 10);
+              var smppPortFile = PID_DIR + path.sep + pid + '.port';
+              if(is_running(pid)) {
+                running = true;
+                smppPort = parseInt(fs.readFileSync(smppPortFile).toString(), 10);
+              } else {
+                fs.unlinkSync(normalPath);
+                if (fs.existsSync(smppPortFile)) {
+                  fs.unlinkSync(smppPortFile);
+                }
+              }
               break;
             }
           }
@@ -110,29 +150,18 @@ setInterval (function () {
         if (!running) {
           rufus.debug('modem %s is NOT running', devices[d][0]);
           var proc = SpawnProcess(devices[d]);
+        } else {
+          rufus.debug('modem %s is running on port %s', devices[d][0], smppPort);
         }
-       } catch(err) { console.log('error',err); }
       }
+    }
+  ).catch(
+    function (err) {
+      rufus.error('Error searching ports %s', err.message);
     }
   );
 
 }, 15000);
-
-
-/**
- * Returns true if two arrays containing same ports
- */
-function portsEqual (ports1, ports2) {
-  var counter = 0, i, j;
-  for(i = 0; i < ports1.length; ++i) {
-    for(j = 0; j < ports2.length; ++j) {
-      if (ports1[i] == ports2[j]) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
 
 
 
