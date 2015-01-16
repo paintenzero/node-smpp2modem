@@ -30,7 +30,11 @@ util.inherits(ModemManager, EventEmitter);
 
 ModemManager.prototype.start = function () {
   var deferred = Q.defer();
-  this.modem.connect(function () {
+  this.modem.connect(function (err) {
+    if (err) {
+      deferred.reject(err);
+      return;
+    }
     this.identify().then(
       function (info) {
         this.modemInfo = info;
@@ -111,6 +115,7 @@ ModemManager.prototype.onStatusReport = function (report) {
  * Callback for modem disconnect
  */
 ModemManager.prototype.onDisconnect = function () {
+  console.log('port was closed!');
   this.emit('disconnect');
 };
 /**

@@ -7,24 +7,27 @@ var ModemManager = require('./modem-manager').ModemManager;
 
 
 var argv = rc('smpp2modem', {
-  smpp_port: 2775,
-  modem_ports: '/dev/ttyUSB0,/dev/ttyUSB1,/dev/ttyUSB2',
-  db_file: 'smsc.sqlite',
-  debug: false,
-  phone_number: '000'
+  smpp: 2775,
+  modem: '/dev/ttyUSB0,/dev/ttyUSB1,/dev/ttyUSB2',
+  sqlite: 'smsc.sqlite',
+  debug: false
 }, require('optimist')
   .alias('m', 'modem').describe('modem', 'Modem serial ports separated by comma')
+  .describe('sqlite', 'SQLite database to use')
+  .alias('s', 'smpp').describe('smpp', 'SMPP port to use')
+  .alias('d', 'debug').describe('debug', 'Show debug')
   .argv);
 
-if (argv.modem) {
-  argv.modem_ports = argv.modem;
+
+function terminate() {
+  process.exit();
 }
 
-var storage = new Storage(argv.db_file);
+var storage = new Storage(argv.sqlite);
 
 // Populate options for modem
 var opts = {
-  ports: argv.modem_ports.split(','),
+  ports: argv.modem.split(','),
   debug: argv.debug,
   phone_number: argv.phone_number,
   auto_hangup: argv.auto_hangup || false
@@ -40,7 +43,7 @@ if (argv.max_send_failures) {
 }
 // Create modem Manager
 var modemMan = new ModemManager(opts, storage);
-modemMan.on('error', function (err) {
+modemMan.on('error', function () {
   terminate();
 });
 modemMan.on('disconnect', function () {
@@ -54,17 +57,12 @@ modemMan.start().then(
     var server = smpp.createServer(function (session) {
       clientsManager.addClientSession(session);
     });
-    server.listen(argv.smpp_port, function () {
-      console.log('Server started at %d', argv.smpp_port);
+    server.listen(argv.smpp, function () {
+      console.log('Server started at %d', argv.smpp);
     });
   },
   function (err) {
     console.error('Unable to init modem', err);
+    terminate();
   }
 );
-
-
-
-function terminate() {
-  process.exit();
-}
