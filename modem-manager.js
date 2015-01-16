@@ -36,22 +36,30 @@ ModemManager.prototype.start = function () {
         this.modemInfo = info;
         this.storage.setIMSI(this.IMSI);
         return Q.ninvoke(this.modem, "getAllSMS");
-      }.bind(this)
+      }.bind(this),
+      function (err) {
+        deferred.reject(err);
+      }
     ).then(
-      this.parseMessages.bind(this)
+      this.parseMessages.bind(this),
+      function (err) {
+        deferred.reject(err);
+      }
     ).then(
       function () {
         return Q.ninvoke(this.modem, "deleteAllSMS");
-      }.bind(this)
+      }.bind(this),
+      function (err) {
+        deferred.reject(err);
+      }
     ).then(
       function () {
         this.sendQueue.checkOutbox();
         deferred.resolve();
-      }.bind(this)
-    ).catch(
+      }.bind(this),
       function (err) {
         deferred.reject(err);
-      }.bind(this)
+      }
     );
   }.bind(this));
 
@@ -125,18 +133,23 @@ ModemManager.prototype.identify = function () {
       function (model) {
         ret.model = model;
         return Q.ninvoke(modem, 'getIMEI');
+      },
+      function (err) {
+        deferred.reject(err);
       }
     ).then(
       function (imei) {
         ret.imei = imei;
         return Q.ninvoke(modem, 'getIMSI');
+      },
+      function (err) {
+        deferred.reject(err);
       }
     ).then(
       function (imsi) {
         ret.imsi = imsi;
         deferred.resolve(ret);
-      }
-    ).catch(
+      },
       function (err) {
         deferred.reject(err);
       }
