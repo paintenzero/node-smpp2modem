@@ -1,4 +1,4 @@
-#!/usr/bin/node
+#!/usr/local/bin/node
 var fs      = require('fs-extra');
 var path    = require('path');
 var Q       = require('q');
@@ -10,6 +10,7 @@ var SERIALS_DIR = '/sys/bus/usb-serial/devices/';
 var SERVER_PATH = './server.js';
 var LOGS_DIR = './logs';
 var ORIG_DATABASE = 'smsc.sqlite';
+var DB_DIR = './db';
 var processes = {}; // {smpp:process}
 
 /**
@@ -26,15 +27,13 @@ function GetFreeSMPPPort() {
  * Spawns process
  */
 function doSpawn(opts) {
-  // var runLog = fs.createWriteStream(LOGS_DIR + path.sep + 'run-' + opts.imsi + '.log');
-  // var errLog = fs.createWriteStream(LOGS_DIR + path.sep + 'error-' + opts.imsi + '.log');
+  var runLog = LOGS_DIR + path.sep + 'run-' + opts.imsi + '.log';
+  var errLog = LOGS_DIR + path.sep + 'error-' + opts.imsi + '.log';
   var pargs = [SERVER_PATH, '--config', 'cfg.ini', '--modem', opts.ports.join(','), '--sqlite', opts.dbFile, '--smpp', opts.smpp];
   rufus.debug('Spawn process with args: ', pargs.join(' '));
   var child = spawn(process.argv[0], pargs, {
-    // stdio: [null, runLog, errLog]
+    stdio: [null, fs.openSync(runLog, "w"), fs.openSync(errLog, "w")]
   });
-  child.smpp = opts.smpp;
-  child.ports = opts.ports;
   child.on ('exit', function (code, signal) {
     rufus.error('child %d exited!', opts.smpp);
     delete processes[opts.smpp];
@@ -65,17 +64,21 @@ function SpawnProcess(ports) {
 
       opts.smpp = GetFreeSMPPPort();
 
-      opts.dbFile = opts.imsi+'.sqlite';
+      opts.dbFile = DB_DIR + path.sep + opts.imsi+'.sqlite';
       var proc;
       fs.exists(opts.dbFile, function(exists) {
         if (!exists) {
-          fs.copy ('smsc.sqlite', opts.dbFile, function () {
+          fs.copy (ORIG_DATABASE, opts.dbFile, function () {
             proc = doSpawn(opts);
           });
         } else {
           proc = doSpawn(opts);
         }
-        processes[opts.smpp] = proc;
+        processes[opts.smpp] = {
+          ports: opts.ports,
+          smpp: opts.smpp,
+          proc: proc
+        };
       });
 
     });
@@ -93,7 +96,7 @@ setInterval (function () {
     function (devices) {
       var d, smpp;
       for (d in devices) {
-        
+       try{ 
         var running = false;
         for (smpp in processes) {
           if (processes.hasOwnProperty(smpp)) {
@@ -108,6 +111,7 @@ setInterval (function () {
           rufus.debug('modem %s is NOT running', devices[d][0]);
           var proc = SpawnProcess(devices[d]);
         }
+       } catch(err) { console.log('error',err); }
       }
     }
   );

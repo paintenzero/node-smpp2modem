@@ -174,7 +174,7 @@ ESME.prototype.handleDeliveryReport = function (message, report) {
     source_addr_ton: parseInt(message.destination_type, 16) === 0x91 ? 1 : 0,
     source_addr_npi: 1,
     destination_addr: this.modemManager.IMSI,
-    dest_addr_ton: 1,
+    dest_addr_ton: 0,
     dest_addr_npi: 1,
     receipted_message_id: this.createMessageId(message.id),
     message_state: status,
@@ -235,7 +235,7 @@ ESME.prototype.passMessage = function (message) {
     source_addr_ton: message.sender_type === '91' ? 1 : 0,
     source_addr_npi: 1,
     destination_addr: this.modemManager.IMSI,
-    destination_addr_ton: 1,
+    destination_addr_ton: 0,
     destination_addr_npi: 1,
     short_message: message.text,
     data_coding: message.dcs
@@ -251,7 +251,7 @@ ESME.prototype.sendUSSDResponse = function (ussdNum, text) {
     source_addr_ton: 0,
     source_addr_npi: 1,
     destination_addr: this.modemManager.IMSI,
-    destination_addr_ton: 1,
+    destination_addr_ton: 0,
     destination_addr_npi: 1,
     short_message: text,
     data_coding: this.modemManager.modem.isGSMAlphabet(text) ? 0 : 8
