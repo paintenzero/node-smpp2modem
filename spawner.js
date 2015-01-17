@@ -24,12 +24,16 @@ if (!fs.existsSync(PID_DIR)) {
   fs.mkdirSync(PID_DIR);
 }
 
-tmpSMPPPorts = {};
+var tmpSMPPPorts = {};
 /**
  * Returns first available SMPP port
  */
 function GetFreeSMPPPort() {
-  var busyPorts = tmpSMPPPorts;
+  var busyPorts = {}, k;
+  for (k in tmpSMPPPorts) {
+    busyPorts[k] = 1;
+  }
+
   var files = fs.readdirSync(PID_DIR), i;
   for (i = files.length - 1; i >= 0; --i) {
     if (path.extname(files[i]) === '.port') {
@@ -61,6 +65,8 @@ function doSpawn(opts) {
   child.on ('exit', function (code, signal) {
     rufus.error('child %d exited!', opts.smpp);
   });
+
+  delete tmpSMPPPorts[opts.smpp];
   
   return child;
 }
@@ -102,7 +108,6 @@ function SpawnProcess(ports) {
           } else {
             proc = doSpawn(opts);
           }
-          delete tmpSMPPPorts[opts.smpp];
         });
       });
 
