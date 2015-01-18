@@ -22,17 +22,23 @@ var argv = rc('smpp2modem', {
 
 var portsArr = argv.modem.split(','), i;
 function terminate() {
-  for (i=0; i < portsArr.length; ++i) {
-    var portNameFile = argv.pid + path.sep + portName + '.pid';
-    if (fs.existsSync(portNameFile)) {
-      fs.unlinkSync(portNameFile);
+  console.log('Terminating');
+  try {
+    for (i=0; i < portsArr.length; ++i) {
+      var portNameFile = argv.pid + path.sep + portName + '.pid';
+      if (fs.existsSync(portNameFile)) {
+        fs.unlinkSync(portNameFile);
+      }
     }
-  }
-  var smppPortFile = argv.pid + path.sep + argv.smpp + '.pid'
-  if (fs.existsSync(smppPortFile)) {
+    var smppPortFile = argv.pid + path.sep + argv.smpp + '.pid'
+    if (fs.existsSync(smppPortFile)) {
       fs.unlinkSync(smppPortFile);
     }
-  process.exit();
+  } catch (err) {
+    console.error('Error cleaning up: %s', err.message);
+  } finally {
+    process.exit();
+  }
 }
 
 if (!fs.existsSync(argv.pid)) {

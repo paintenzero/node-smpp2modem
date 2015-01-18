@@ -84,13 +84,13 @@ function SpawnProcess(ports) {
   });
   modem.connect(function (err) {
     if (err) {
-      rufus.error('Modem start failed: %s', err.message);
+      rufus.error('Modem %s start failed: %s', ports[0], err.message);
       delete tmpSMPPPorts[opts.smpp];
       return;
     }
     modem.getIMSI(function(err, imsi) {
       if (err) {
-        rufus.error("Unable to get IMSI: %s", err.message);
+        rufus.error("Unable to get IMSI for %s: %s", ports[0], err.message);
         delete tmpSMPPPorts[opts.smpp];
         return;
       }
