@@ -69,7 +69,14 @@ ModemManager.prototype.getAndDeleteMessages = function(storage) {
   .then(
     this.parseMessages.bind(this),
     function (err) {
-      deferred.reject(err);
+      Q.ninvoke(this.modem, "deleteAllSMS").then(
+        function () {
+          Q.resolve();
+        },
+        function (err) {
+          Q.reject(err);
+        }
+      );
     }
   ).then(
     function () {

@@ -9,7 +9,7 @@ var is_running  = require('is-running');
 
 var SERIALS_DIR = '/sys/bus/usb-serial/devices/';
 var SERVER_PATH = './server.js';
-var LOGS_DIR = __dirname + path.sep + 'logs');
+var LOGS_DIR = __dirname + path.sep + 'logs';
 var ORIG_DATABASE = __dirname + path.sep + 'smsc.sqlite';
 var DB_DIR = __dirname + path.sep + 'db';
 var PID_DIR = __dirname + path.sep + 'pids';
