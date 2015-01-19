@@ -173,6 +173,21 @@ Storage.prototype.setReferenceStatus = function (refId, number, status) {
   ]);
 };
 
+Storage.prototype.setMessageStatus = function (message, report) {
+  var status = "Status " + report.status;
+
+  var repStatus = parseInt(report.status, 16);
+
+  if (repStatus === 0) {
+    status = 'DeliveredOK';
+  } else if (repStatus & 0x40) {
+    status = 'Enroute';
+  } else if (repStatus & 0x20) {
+    status = 'Rejected';
+  }
+  return Q.ninvoke(this.db, "run", "UPDATE `sentitems` SET `delivered_ts` = ?, `status` = ? WHERE id = ? AND `destination` = ?", [this.getTS(), status, message.id, message.destination]);
+};
+
 Storage.prototype.getPartsWithStatus = function (msgId, number) {
   var deferred = Q.defer();
   this.db.get("SELECT COUNT(`reference_id`) as cnt FROM `message_references` WHERE `status` IS NOT NULL AND `message_id` = ? AND `destination` = ?", [
