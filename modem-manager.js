@@ -39,20 +39,13 @@ ModemManager.prototype.start = function () {
       function (info) {
         this.modemInfo = info;
         this.storage.setIMSI(this.IMSI);
-        return Q.ninvoke(this.modem, "getAllSMS");
+        return this.getAndDeleteMessages('SM'); //Get messages from SIM-card
       }.bind(this),
       function (err) {
         deferred.reject(err);
-      }
+      }      
     ).then(
-      this.parseMessages.bind(this),
-      function (err) {
-        deferred.reject(err);
-      }
-    ).then(
-      function () {
-        return Q.ninvoke(this.modem, "deleteAllSMS");
-      }.bind(this),
+      this.getAndDeleteMessages.bind(this, 'ME'),
       function (err) {
         deferred.reject(err);
       }
@@ -69,6 +62,33 @@ ModemManager.prototype.start = function () {
 
   return deferred.promise;
 };
+
+ModemManager.prototype.getAndDeleteMessages = function(storage) {
+  var deferred = Q.defer();
+  Q.ninvoke(this.modem, "getMessagesFromStorage", storage)
+  .then(
+    this.parseMessages.bind(this),
+    function (err) {
+      deferred.reject(err);
+    }
+  ).then(
+    function () {
+      return Q.ninvoke(this.modem, "deleteAllSMS");
+    }.bind(this),
+    function (err) {
+      deferred.reject(err);
+    }
+  ).then(
+    function () {
+      deferred.resolve();
+    },
+    function (err) {
+      deferred.reject(err);
+    }
+  );
+  return deferred.promise;
+};
+
 /**
  * Callback for modem message receive
  */
@@ -91,11 +111,13 @@ ModemManager.prototype.onStatusReport = function (report) {
     function (message) {
       if (message.report_requested === 1) {
         if (message.parts === 1) {
+          this.storage.setMessageStatus(message, report);
           this.emit('status_report', message, report);
         } else {
           this.storage.getPartsWithStatus(message.id, message.destination).then(
             function (cnt) {
               if (message.parts <= cnt) {
+                this.storage.setMessageStatus(message, report);
                 this.emit('status_report', message, report);
               }
             }.bind(this),

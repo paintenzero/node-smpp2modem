@@ -1,11 +1,11 @@
 {
   "name": "smpp2modem",
   "description": "SMPP server with GSM modem backend",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "author": "Sergey Birukov <sergeyb26@gmail.com>",
   "dependencies": {
     "fs-extra": "~0.14.0",
-    "gsm-modem": "~> 0.2",
+    "gsm-modem": "~> 0.3",
     "is-running": "^1.0.5",
     "optimist": "~> 0.6",
     "q": "~> 1.1",
