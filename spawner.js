@@ -9,20 +9,27 @@ var is_running  = require('is-running');
 
 var SERIALS_DIR = '/sys/bus/usb-serial/devices/';
 var SERVER_PATH = './server.js';
-var LOGS_DIR = './logs';
-var ORIG_DATABASE = 'smsc.sqlite';
-var DB_DIR = './db';
-var PID_DIR = './pids';
+var LOGS_DIR = __dirname + path.sep + 'logs');
+var ORIG_DATABASE = __dirname + path.sep + 'smsc.sqlite';
+var DB_DIR = __dirname + path.sep + 'db';
+var PID_DIR = __dirname + path.sep + 'pids';
 
+
+if (LOGS_DIR[0] !== '/') { LOGS_DIR = path.normalize(__dirname + path.sep + LOGS_DIR); }
 if (!fs.existsSync(LOGS_DIR)) {
   fs.mkdirSync(LOGS_DIR);
 }
+if (DB_DIR[0] !== '/') { DB_DIR = path.normalize(__dirname + path.sep + DB_DIR); }
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR);
 }
+if (PID_DIR[0] !== '/') { PID_DIR = path.normalize(__dirname + path.sep + PID_DIR); }
 if (!fs.existsSync(PID_DIR)) {
   fs.mkdirSync(PID_DIR);
 }
+if (SERVER_PATH[0] !== '/') { SERVER_PATH = path.normalize(__dirname + path.sep + SERVER_PATH); }
+if (ORIG_DATABASE[0] !== '/') { ORIG_DATABASE = path.normalize(__dirname + path.sep + ORIG_DATABASE); }
+
 
 var tmpSMPPPorts = {};
 /**
