@@ -8,6 +8,8 @@ function SendQueue(modemManager, storage, options) {
   this.__defineGetter__('maxFailures', function () { return options.max_failures || 3; });
 
   this.queue = [];
+  this.lastFailure = 0;
+  this.failures = 0;
 }
 
 SendQueue.prototype.checkOutbox = function () {
@@ -74,11 +76,14 @@ SendQueue.prototype.sendNext = function () {
           this.queue.splice(0, 1);
           Q.nextTick(this.sendNext.bind(this));
           this.modemManager.emit('send_fail', message);
+
           this.storage.giveUpSendingMessage(message, err.message).fail(
             function (err) {
               console.error('Failure while giving up ', err);
             }
           );
+
+          this.addFailure();
         } else {
           setTimeout(this.sendNext.bind(this), 2000);
           this.storage.markFailure(message).fail(
@@ -89,6 +94,22 @@ SendQueue.prototype.sendNext = function () {
         }
       }.bind(this)
     );
+  }
+};
+/**
+ * Adds failure to failure count
+ */
+SendQueue.prototype.addFailure = function () {
+  if ((new Date()).getTime() - this.lastFailure > 1800000) {
+    this.failures = 0;
+  }
+  this.lastFailure = (new Date()).getTime();
+  ++this.failures;
+
+  console.log ('failures count: ', this.failures);
+  if (this.failures >= 3) {
+    this.failures = 0;
+    this.modemManager.reconnect();
   }
 };
 

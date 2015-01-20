@@ -10,26 +10,30 @@ function ModemManager(opts, storage) {
 
   this.options = {};
 
-  var phoneNumber = opts.phone_number;
-  delete opts.phone_number;
-  var modem = new Modem(opts);
-  modem.on('message', this.onSMS.bind(this));
-  modem.on('report', this.onStatusReport.bind(this));
-  modem.on('disconnect', this.onDisconnect.bind(this));
-  modem.on('error', this.onError.bind(this));
-
-  this.__defineGetter__('modem', function () { return modem; });
   this.__defineGetter__('storage', function () { return storage; });
   this.__defineGetter__('IMSI', function () { return this.modemInfo ? this.modemInfo.imsi : ''; }.bind(this));
   this.__defineGetter__('phoneNumber', function () { return phoneNumber; });
+  this.__defineGetter__('opts', function () { return opts; });
   this.sendQueue = new SendQueue(this, this.storage, opts);
+  this.reconnecting = false;
 
   return this;
 }
 util.inherits(ModemManager, EventEmitter);
 
+ModemManager.prototype.createModem = function() {
+  this.modem = new Modem(this.opts);
+  this.modem.on('message', this.onSMS.bind(this));
+  this.modem.on('report', this.onStatusReport.bind(this));
+  this.modem.on('disconnect', this.onDisconnect.bind(this));
+  this.modem.on('error', this.onError.bind(this));
+};
+
 ModemManager.prototype.start = function () {
   var deferred = Q.defer();
+
+  this.createModem();
+
   this.modem.connect(function (err) {
     if (err) {
       deferred.reject(err);
@@ -95,7 +99,23 @@ ModemManager.prototype.getAndDeleteMessages = function(storage) {
   );
   return deferred.promise;
 };
-
+/**
+ * Reconnects the modem
+ */
+ModemManager.prototype.reconnect = function () {
+  this.reconnecting = true;
+  this.modem.close(function () {
+    delete this._modem;
+    this.start().then(
+      function () {
+        this.reconnecting = false;
+      }.bind(this),
+      function (err) {
+        this.emit('error', err);
+      }.bind(this)
+    );
+  }.bind(this));
+};
 /**
  * Callback for modem message receive
  */
@@ -144,14 +164,20 @@ ModemManager.prototype.onStatusReport = function (report) {
  * Callback for modem disconnect
  */
 ModemManager.prototype.onDisconnect = function () {
-  console.log('port was closed!');
-  this.emit('disconnect');
+  if (!this.reconnecting) {
+    console.log('port was closed!');
+    this.emit('disconnect');
+  }
 };
 /**
  * Callback for modem error
  */
 ModemManager.prototype.onError = function (err) {
-  this.emit('error', err);
+  if (err.message === 'TIMEOUT') {
+    this.reconnect();
+  } else {
+    this.emit('error', err);
+  }
 };
 /**
  * Gets modem's info
