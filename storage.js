@@ -181,9 +181,9 @@ Storage.prototype.setMessageStatus = function (message, report) {
   if (repStatus === 0) {
     status = 'DeliveredOK';
   } else if (repStatus & 0x40) {
-    status = 'Enroute';
-  } else if (repStatus & 0x20) {
     status = 'Rejected';
+  } else if (repStatus & 0x20) {
+    status = 'Enroute';
   }
   return Q.ninvoke(this.db, "run", "UPDATE `sentitems` SET `delivered_ts` = ?, `status` = ? WHERE id = ? AND `destination` = ?", [this.getTS(), status, message.id, message.destination]);
 };

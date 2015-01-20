@@ -136,16 +136,19 @@ ESME.prototype.sendFail = function (message) {
  * Pass delivery report to ESME
  */
 ESME.prototype.handleDeliveryReport = function (message, report) {
-  if (report.status[0] === '0') {
+
+  var repStatus = parseInt(report.status, 16), status, textStatus;
+
+  if (repStatus === 0) {
     status = this.REPORT_STATUSES.DELIVERED;
     textStatus = 'DELIVRD';
-  } else if (report.status[0] === '2') {
-    status = this.REPORT_STATUSES.ENROUTE;
-    textStatus = 'ENROUTE';
-  } else if (report.status[0] === '4') {
+  } else if (repStatus & 0x40) {
     status = this.REPORT_STATUSES.EXPIRED;
     textStatus = 'EXPIRED';
-  } else if (report.status[0] === '9') {
+  } else if (repStatus & 0x20) {
+    status = this.REPORT_STATUSES.ENROUTE;
+    textStatus = 'ENROUTE';
+  } else if (repStatus === 0x99) {
     status = this.REPORT_STATUSES.MODEM;
     textStatus = 'REJECTD';
   } else {

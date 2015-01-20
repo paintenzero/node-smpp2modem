@@ -30,15 +30,19 @@ function terminate() {
         fs.unlinkSync(portNameFile);
       }
     }
-    var smppPortFile = argv.pid + path.sep + argv.smpp + '.pid'
+  } catch (err) {
+    console.error('Error cleaning up: %s', err.message);
+  }
+  try {
+    var smppPortFile = argv.pid + path.sep + process.pid + '.port'
     if (fs.existsSync(smppPortFile)) {
       fs.unlinkSync(smppPortFile);
     }
   } catch (err) {
     console.error('Error cleaning up: %s', err.message);
-  } finally {
-    process.exit();
   }
+
+  process.exit();
 }
 
 if (!fs.existsSync(argv.pid)) {

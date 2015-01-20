@@ -7,6 +7,9 @@ var spawn       = require('child_process').spawn;
 var Modem       = require('gsm-modem');
 var is_running  = require('is-running');
 
+rufus.setLevel(rufus.INFO);
+var SMPP_PORT_RANGE = [2775, 2779];
+// Paths
 var SERIALS_DIR = '/sys/bus/usb-serial/devices/';
 var SERVER_PATH = './server.js';
 var LOGS_DIR = __dirname + path.sep + 'logs';
@@ -14,7 +17,7 @@ var ORIG_DATABASE = __dirname + path.sep + 'smsc.sqlite';
 var DB_DIR = __dirname + path.sep + 'db';
 var PID_DIR = __dirname + path.sep + 'pids';
 
-
+// Normalize paths
 if (LOGS_DIR[0] !== '/') { LOGS_DIR = path.normalize(__dirname + path.sep + LOGS_DIR); }
 if (!fs.existsSync(LOGS_DIR)) {
   fs.mkdirSync(LOGS_DIR);
@@ -29,7 +32,6 @@ if (!fs.existsSync(PID_DIR)) {
 }
 if (SERVER_PATH[0] !== '/') { SERVER_PATH = path.normalize(__dirname + path.sep + SERVER_PATH); }
 if (ORIG_DATABASE[0] !== '/') { ORIG_DATABASE = path.normalize(__dirname + path.sep + ORIG_DATABASE); }
-
 
 var tmpSMPPPorts = {};
 /**
@@ -51,11 +53,40 @@ function GetFreeSMPPPort() {
       }
     }
   }
-  var smppPort = 2775;
-  for (smppPort; smppPort < 5000; ++smppPort) {
+  var smppPort = SMPP_PORT_RANGE[0];
+  for (smppPort; smppPort <= SMPP_PORT_RANGE[1] + 1; ++smppPort) {
     if (!busyPorts[smppPort]) { break; }
   }
+  if (smppPort > SMPP_PORT_RANGE[1]) return 0;
   return smppPort;
+}
+
+var portLocks = {};
+/**
+ * Sets lock for a port for a minute
+ */
+function setPortLocks(ports) {
+  var i, ii = ports.length;
+  for (i = ii - 1; i >= 0; --i) {
+    if (portLocks[ports[i]] && portLocks[ports[i]] > (new Date()).getTime()) { // Lock is set
+      return false;
+    }
+  }
+  for (i = ii - 1; i >= 0; --i) {
+    portLocks[ports[i]] = (new Date()).getTime() + 60000;
+  }
+  return true;
+}
+/**
+ * Remove lock for a port
+ */
+function removePortLocks(ports) {
+  var i;
+  for (i = ports.length - 1; i >= 0; --i) {
+    if (portLocks[ports[i]]) {
+      delete portLocks[ports[i]];
+    }
+  }
 }
 /**
  * Spawns process
@@ -64,26 +95,38 @@ function doSpawn(opts) {
   var runLog = LOGS_DIR + path.sep + 'run-' + opts.imsi + '.log';
   var errLog = LOGS_DIR + path.sep + 'error-' + opts.imsi + '.log';
   var pargs = [SERVER_PATH, '--config', 'cfg.ini', '--modem', opts.ports.join(','), '--sqlite', opts.dbFile, '--smpp', opts.smpp, '--pid', PID_DIR];
-  rufus.debug('Spawn process with args: ', pargs.join(' '));
+  rufus.info('Spawn process on port %s for ports %s with IMSI: %s', opts.smpp, opts.ports.join(','), opts.imsi);
   var child = spawn(process.argv[0], pargs, {
     // stdio: 'inherit'
-    stdio: [null, fs.openSync(runLog, "w"), fs.openSync(errLog, "w")]
+    stdio: [null, fs.openSync(runLog, "a"), fs.openSync(errLog, "a")]
   });
   child.on ('exit', function (code, signal) {
     rufus.error('child %d exited!', opts.smpp);
   });
 
   delete tmpSMPPPorts[opts.smpp];
+  removePortLocks(opts.ports);
   
   return child;
 }
 
 
+/**
+ * Prepares and spawns a process
+ */
 function SpawnProcess(ports) {
   var opts = {
     ports: ports,
     smpp: GetFreeSMPPPort()
   };
+  if (opts.smpp === 0) {
+    rufus.error('No free ports for: %s', ports.join(','));
+    return;
+  }
+  if (!setPortLocks(ports)) {
+    rufus.error('Ports %s are already locked', ports.join(','));
+    return;
+  }
   tmpSMPPPorts[opts.smpp] = 1;
 
   var modem = new Modem({
@@ -93,16 +136,18 @@ function SpawnProcess(ports) {
     if (err) {
       rufus.error('Modem %s start failed: %s', ports[0], err.message);
       delete tmpSMPPPorts[opts.smpp];
+      removePortLocks(ports);
       return;
     }
     modem.getIMSI(function(err, imsi) {
       if (err) {
         rufus.error("Unable to get IMSI for %s: %s", ports[0], err.message);
         delete tmpSMPPPorts[opts.smpp];
+        removePortLocks(ports);
         return;
       }
       opts.imsi = imsi;
-      rufus.info('IMSI: %s port: %s device: %s', imsi, opts.smpp, opts.ports);
+      rufus.debug('IMSI: %s port: %s device: %s', imsi, opts.smpp, opts.ports);
       modem.close(function () {
 
         opts.dbFile = DB_DIR + path.sep + opts.imsi+'.sqlite';
@@ -143,7 +188,6 @@ setInterval (function () {
           for (j = jj - 1; j>=0; --j) {
             if (path.basename(devices[d][j]) === fileBaseName) {
               var normalPath = path.normalize(PID_DIR + path.sep + files[i]);
-              rufus.debug('Found pid for port %s', devices[d][j]);
               var pid = parseInt(fs.readFileSync(normalPath).toString(), 10);
               var smppPortFile = PID_DIR + path.sep + pid + '.port';
               if(is_running(pid)) {
@@ -160,7 +204,7 @@ setInterval (function () {
           }
         }
         if (!running) {
-          rufus.debug('modem %s is NOT running', devices[d][0]);
+          rufus.info('modem %s is NOT running', devices[d][0]);
           var proc = SpawnProcess(devices[d]);
         } else {
           rufus.debug('modem %s is running on port %s', devices[d][0], smppPort);
