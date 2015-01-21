@@ -112,14 +112,17 @@ function DBBackuper(opts) {
  *
  */
 DBBackuper.prototype.selectSentItems = function() {
-  return Q.ninvoke(this.db, "all", "SELECT * FROM `sentitems` WHERE (`status` = \"SendingError\") OR (`submit_ts` < ?)", [
+  return Q.ninvoke(this.db, "all", "SELECT * FROM `sentitems` WHERE " + this.sentitemsWhereClause, [
     Math.floor((new Date()).getTime() / 1000) - EXPIRATION_TIME
   ]);
 };
 DBBackuper.prototype.deleteSentItems = function() {
-  return Q.ninvoke(this.db, "all", "DELETE FROM `sentitems` WHERE (`status` = \"SendingError\") OR (`submit_ts` < ?)", [
+  return Q.ninvoke(this.db, "all", "DELETE FROM `sentitems` WHERE " + this.sentitemsWhereClause(), [
     Math.floor((new Date()).getTime() / 1000) - EXPIRATION_TIME
   ]);
+};
+DBBackuper.prototype.sentitemsWhereClause = function () {
+  return "(`status` = \"SendingError\" OR `status` = \"Rejected\" OR `status` = \"DeliveredOK\") OR (`submit_ts` < ?)";
 };
 DBBackuper.prototype.selectInbox = function() {
   return Q.ninvoke(this.db, "all", "SELECT * FROM `inbox` WHERE 1");

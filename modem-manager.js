@@ -55,8 +55,20 @@ ModemManager.prototype.start = function () {
       }
     ).then(
       function () {
-        this.sendQueue.checkOutbox();
-        deferred.resolve();
+        var done = function () {
+          this.sendQueue.checkOutbox();
+          deferred.resolve();
+        }.bind(this);
+        if (this.modem.manufacturer.indexOf('ZTE') !== -1) {
+          this.modem.readDeleteZTE_SR(function (err, messages) {
+            if (messages && messages.length > 0) {
+              this.parseMessages(messages);
+            }
+            done();
+          });
+        } else {
+          done();
+        }
       }.bind(this),
       function (err) {
         deferred.reject(err);
@@ -75,10 +87,10 @@ ModemManager.prototype.getAndDeleteMessages = function(storage) {
     function (err) {
       Q.ninvoke(this.modem, "deleteAllSMS").then(
         function () {
-          Q.resolve();
+          deferred.resolve();
         },
         function (err) {
-          Q.reject(err);
+          deferred.reject(err);
         }
       );
     }

@@ -24,7 +24,7 @@ var portsArr = argv.modem.split(','), i;
 function terminate() {
   console.log('Terminating');
   try {
-    for (i=0; i < portsArr.length; ++i) {
+    for (i = 0; i < portsArr.length; ++i) {
       var portNameFile = argv.pid + path.sep + portName + '.pid';
       if (fs.existsSync(portNameFile)) {
         fs.unlinkSync(portNameFile);
@@ -48,7 +48,7 @@ function terminate() {
 if (!fs.existsSync(argv.pid)) {
   fs.mkdirSync(argv.pid);
 }
-for (i=0; i < portsArr.length; ++i) {
+for (i = 0; i < portsArr.length; ++i) {
   var portName = path.basename(portsArr[i]);
   fs.writeFileSync(argv.pid + path.sep + portName + '.pid', process.pid, {flag: 'w', mode: '0644'});
 }
