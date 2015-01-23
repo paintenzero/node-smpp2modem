@@ -44,7 +44,7 @@ function terminate() {
   }
   var smppPortFile;
   try {
-    smppPortFile = argv.pid + path.sep + process.pid + '.port'
+    smppPortFile = argv.pid + path.sep + process.pid + '.port';
     if (fs.existsSync(smppPortFile)) {
       fs.unlinkSync(smppPortFile);
     }

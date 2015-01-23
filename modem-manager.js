@@ -3,6 +3,7 @@ var Q = require('q');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var SendQueue = require('./send-queue').SendQueue;
+var rufus = require('rufus');
 
 function ModemManager(opts, storage) {
   // Call the super constructor.
@@ -91,7 +92,7 @@ ModemManager.prototype.getAndDeleteMessages = function (storage) {
           deferred.reject(err);
         }
       );
-    }
+    }.bind(this)
   ).then(
     function () {
       return Q.ninvoke(this.modem, "deleteAllSMS");
