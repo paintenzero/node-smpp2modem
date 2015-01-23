@@ -112,7 +112,7 @@ function DBBackuper(opts) {
  *
  */
 DBBackuper.prototype.selectSentItems = function() {
-  return Q.ninvoke(this.db, "all", "SELECT * FROM `sentitems` WHERE " + this.sentitemsWhereClause, [
+  return Q.ninvoke(this.db, "all", "SELECT * FROM `sentitems` WHERE " + this.sentitemsWhereClause(), [
     Math.floor((new Date()).getTime() / 1000) - EXPIRATION_TIME
   ]);
 };
