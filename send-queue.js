@@ -106,7 +106,6 @@ SendQueue.prototype.addFailure = function () {
   this.lastFailure = (new Date()).getTime();
   ++this.failures;
 
-  console.log ('failures count: ', this.failures);
   if (this.failures >= 3) {
     this.failures = 0;
     this.modemManager.reconnect();

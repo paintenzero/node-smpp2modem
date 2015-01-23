@@ -8,20 +8,20 @@ function ModemManager(opts, storage) {
   // Call the super constructor.
   EventEmitter.call(this);
 
-  this.options = {};
-
+  opts.commandsTimeout = 15000;
   this.__defineGetter__('storage', function () { return storage; });
   this.__defineGetter__('IMSI', function () { return this.modemInfo ? this.modemInfo.imsi : ''; }.bind(this));
-  this.__defineGetter__('phoneNumber', function () { return phoneNumber; });
   this.__defineGetter__('opts', function () { return opts; });
   this.sendQueue = new SendQueue(this, this.storage, opts);
   this.reconnecting = false;
+
+  this.createModem();
 
   return this;
 }
 util.inherits(ModemManager, EventEmitter);
 
-ModemManager.prototype.createModem = function() {
+ModemManager.prototype.createModem = function () {
   this.modem = new Modem(this.opts);
   this.modem.on('message', this.onSMS.bind(this));
   this.modem.on('report', this.onStatusReport.bind(this));
@@ -32,7 +32,6 @@ ModemManager.prototype.createModem = function() {
 ModemManager.prototype.start = function () {
   var deferred = Q.defer();
 
-  this.createModem();
 
   this.modem.connect(function (err) {
     if (err) {
@@ -47,7 +46,7 @@ ModemManager.prototype.start = function () {
       }.bind(this),
       function (err) {
         deferred.reject(err);
-      }      
+      }
     ).then(
       this.getAndDeleteMessages.bind(this, 'ME'),
       function (err) {
@@ -65,7 +64,7 @@ ModemManager.prototype.start = function () {
               this.parseMessages(messages);
             }
             done();
-          });
+          }.bind(this));
         } else {
           done();
         }
@@ -79,10 +78,9 @@ ModemManager.prototype.start = function () {
   return deferred.promise;
 };
 
-ModemManager.prototype.getAndDeleteMessages = function(storage) {
+ModemManager.prototype.getAndDeleteMessages = function (storage) {
   var deferred = Q.defer();
-  Q.ninvoke(this.modem, "getMessagesFromStorage", storage)
-  .then(
+  Q.ninvoke(this.modem, "getMessagesFromStorage", storage).then(
     this.parseMessages.bind(this),
     function (err) {
       Q.ninvoke(this.modem, "deleteAllSMS").then(
@@ -116,16 +114,21 @@ ModemManager.prototype.getAndDeleteMessages = function(storage) {
  */
 ModemManager.prototype.reconnect = function () {
   this.reconnecting = true;
+  console.log('Try to reconnect');
   this.modem.close(function () {
-    delete this._modem;
-    this.start().then(
-      function () {
-        this.reconnecting = false;
-      }.bind(this),
-      function (err) {
-        this.emit('error', err);
-      }.bind(this)
-    );
+    console.log('Connecting to the modem again');
+    setTimeout(function () {
+      this.start().then(
+        function () {
+          console.log('Reconnected!');
+          this.reconnecting = false;
+        }.bind(this),
+        function (err) {
+          console.log('Reconnect error: %s', err.message);
+          this.emit('error', err);
+        }.bind(this)
+      );
+    }.bind(this), 15000);
   }.bind(this));
 };
 /**
@@ -178,7 +181,7 @@ ModemManager.prototype.onStatusReport = function (report) {
 ModemManager.prototype.onDisconnect = function () {
   if (!this.reconnecting) {
     console.log('port was closed!');
-    this.emit('disconnect');
+    this.reconnect();
   }
 };
 /**
