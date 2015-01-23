@@ -114,6 +114,9 @@ ModemManager.prototype.getAndDeleteMessages = function (storage) {
  * Reconnects the modem
  */
 ModemManager.prototype.reconnect = function () {
+  if (this.reconnecting) {
+    return;
+  }
   this.reconnecting = true;
   console.log('Try to reconnect');
   this.modem.close(function () {
