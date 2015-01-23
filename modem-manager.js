@@ -17,6 +17,8 @@ function ModemManager(opts, storage) {
   this.reconnecting = false;
 
   this.createModem();
+  this.logger = rufus.getLogger();
+  this.reconnecting = false;
 
   return this;
 }
@@ -184,7 +186,7 @@ ModemManager.prototype.onStatusReport = function (report) {
  */
 ModemManager.prototype.onDisconnect = function () {
   if (!this.reconnecting) {
-    console.log('port was closed!');
+    this.logger.debug('port was closed!');
     this.reconnect();
   }
 };
@@ -195,6 +197,7 @@ ModemManager.prototype.onError = function (err) {
   if (err.message === 'TIMEOUT') {
     this.reconnect();
   } else {
+    this.logger.debug('Modem manager emitting error: %s', err.message);
     this.emit('error', err);
   }
 };
