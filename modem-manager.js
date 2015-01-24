@@ -260,7 +260,11 @@ ModemManager.prototype.parseMessages = function (messages) {
  *
  */
 ModemManager.prototype.queueMessage = function (message) {
-  return this.sendQueue.add(message);
+  if (this.reconnecting) { // We are in reconnecting stage, do not send
+    this.emit('send_fail', message);
+  } else {
+    return this.sendQueue.add(message);
+  }
 };
 /**
  *

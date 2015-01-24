@@ -60,7 +60,7 @@ SendQueue.prototype.add = function (message) {
  */
 SendQueue.prototype.startSending = function () {
   if (!this.idle) {
-    logger.error('Called start processing while idling');
+    logger.error('Called start processing while not idling');
     return;
   }
   this.idle = false;
@@ -70,6 +70,7 @@ SendQueue.prototype.startSending = function () {
 SendQueue.prototype.sendNext = function () {
   if (this.modemManager.reconnecting) {
     logger.error('Do not send SMS because modem manager is in reconnecting state');
+    this.idle = true;
     return;
   }
 
@@ -84,6 +85,7 @@ SendQueue.prototype.sendNext = function () {
     }).then(
       function (references) {
         this.storage.setMessageSent(message, references);
+        this.failures = 0;
         this.queue.splice(0, 1);
         setTimeout(this.sendNext.bind(this), 1000);
       }.bind(this)
