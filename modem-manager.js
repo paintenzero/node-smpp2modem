@@ -13,12 +13,16 @@ function ModemManager(opts, storage) {
   this.__defineGetter__('storage', function () { return storage; });
   this.__defineGetter__('IMSI', function () { return this.modemInfo ? this.modemInfo.imsi : ''; }.bind(this));
   this.__defineGetter__('opts', function () { return opts; });
+  this.__defineGetter__('ports', function () { return opts.ports; });
   this.sendQueue = new SendQueue(this, this.storage, opts);
   this.reconnecting = false;
 
   this.createModem();
   this.logger = rufus.getLogger();
   this.reconnecting = false;
+
+  this.statPeriod = opts.statPeriod || 10*60*1000;
+  this.statInterval = setInterval(this.sendStat.bind(this), this.statPeriod);
 
   return this;
 }
@@ -271,6 +275,36 @@ ModemManager.prototype.queueMessage = function (message) {
  */
 ModemManager.prototype.getSignal = function () {
   return Q.ninvoke(this.modem, "getSignalStrength");
+};
+/**
+ *
+ */
+ModemManager.prototype.getIMSI = function () {
+  return Q.ninvoke(this.modem, "getSignal");
+};
+/**
+ * Collects and emits statistics object
+ */
+ModemManager.prototype.sendStat = function () {
+  var promises = [];
+  promises.push(this.storage.getSentSMSCount(this.statPeriod));
+  promises.push(this.storage.getSentSMSCount(this.statPeriod, "SendingError"));
+  promises.push(this.storage.getOutboxMessages());
+  promises.push(this.getSignal());
+
+  Q.all(promises).then(
+    function(results) {
+      var statObj = {
+        time: Math.floor(new Date().getTime() / 1000),
+        period: this.statPeriod,
+        sent: results[0].cnt,
+        rejected: results[1].cnt,
+        queue: results[2].length,
+        signal: results[3].db
+      };
+      this.emit('stat', statObj);
+    }.bind(this)
+  );
 };
 
 module.exports.ModemManager = ModemManager;

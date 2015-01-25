@@ -231,5 +231,20 @@ Storage.prototype.addInboxMessage = function (message, smsc_tpdu) {
 Storage.prototype.getTS = function () {
   return Math.floor(new Date().getTime() / 1000);
 };
+/**
+ *
+ */
+Storage.prototype.getSentSMSCount = function (period, status) {
+  "use strict";
+  var fromTime = Math.floor(((new Date()).getTime() - period) / 1000);
+  var where = [fromTime];
+  var sql = "SELECT COUNT(*) as cnt FROM `sentitems` WHERE `submit_ts` > ?";
+  if (status) {
+    sql += " AND `status` = ?";
+    where.push(status);
+  }
+  return Q.ninvoke(this.db, "get", sql, where);
+};
+
 
 module.exports = Storage;

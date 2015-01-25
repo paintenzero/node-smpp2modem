@@ -155,7 +155,7 @@ ESME.prototype.handleDeliveryReport = function (message, report) {
     status = this.REPORT_STATUSES.UNKNOWN;
     textStatus = 'UNKNOWN';
   }
-  
+
   var sm = [
     'id:' + this.createMessageId(message.id),
     'sub:001',
@@ -277,6 +277,22 @@ ESME.prototype.sendSYS = function () {
       });
     }.bind(this)
   );
+};
+/**
+ * Sends statistics to ESME
+ */
+ESME.prototype.sendStat = function (stat) {
+  this.session.deliver_sm({
+    service_type: 'STAT',
+    source_addr: this.modemManager.IMSI,
+    source_addr_ton: 0,
+    source_addr_npi: 1,
+    destination_addr: this.modemManager.IMSI,
+    destination_addr_ton: 0,
+    destination_addr_npi: 1,
+    short_message: JSON.stringify(stat),
+    data_coding: 0
+  });
 };
 
 module.exports = ESME;

@@ -8,6 +8,7 @@ function ClientsManager(storage, modemManager) {
   modemManager.on('message', this.handleIncomingMessage.bind(this));
   modemManager.on('send_fail', this.handleSendFailure.bind(this));
   modemManager.on('status_report', this.handleReport.bind(this));
+  modemManager.on('stat', this.handleStat.bind(this));
 }
 
 ClientsManager.prototype.addClientSession = function (sess) {
@@ -44,6 +45,14 @@ ClientsManager.prototype.handleSendFailure = function(message) {
 ClientsManager.prototype.handleReport = function(message, report) {
   this.clients.forEach(function (client) {
     client.handleDeliveryReport(message, report);
+  });
+};
+/**
+ * Sends statistics to all connected EMSEs
+ */
+ClientsManager.prototype.handleStat = function(stat) {
+  this.clients.forEach(function (client) {
+    client.sendStat(stat);
   });
 };
 
