@@ -117,6 +117,12 @@ Storage.prototype.giveUpSendingMessage = function (message, reason) {
 Storage.prototype.getOutboxMessages = function () {
   return Q.ninvoke(this.db, "all", "SELECT * FROM `outbox` ORDER BY `submit_ts` ASC");
 };
+/**
+ *
+ */
+Storage.prototype.getOutboxLength = function () {
+  return Q.ninvoke(this.db, "get", "SELECT COUNT(*) as cnt FROM `outbox`");
+};
 
 
 Storage.prototype.getUserId = function (userId, password) {
