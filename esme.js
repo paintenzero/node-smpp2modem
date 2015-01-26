@@ -1,6 +1,7 @@
 var smpp = require('smpp');
 var Q = require('q');
 var rufus = require('rufus');
+var util = require('util');
 
 function ESME(session, storage, modemManager) {
   this.session = session;
@@ -262,8 +263,11 @@ ESME.prototype.sendUSSDResponse = function (ussdNum, text) {
 };
 
 ESME.prototype.sendSYS = function () {
-  this.modemManager.getSignal().then(
-    function (info) {
+  var promises = [];
+  promises.push(this.modemManager.getSignal());
+  promises.push(this.storage.getOutboxLength());
+  Q.all(promises).then(
+    function (results) {
       this.session.deliver_sm({
         service_type: 'SYS',
         source_addr: this.modemManager.IMSI,
@@ -272,7 +276,7 @@ ESME.prototype.sendSYS = function () {
         destination_addr: this.modemManager.IMSI,
         destination_addr_ton: 0,
         destination_addr_npi: 1,
-        short_message: "Signal: " + info.db,
+        short_message: util.format("Signal: %d Queue: %d", results[0].db, results[1].cnt),
         data_coding: 0
       });
     }.bind(this)
