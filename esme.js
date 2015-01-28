@@ -23,7 +23,6 @@ function ESME(session, storage, modemManager) {
     session.send(pdu.response());
     session.close();
   });
-  this.sendSYSInterval = null;
 }
 /**
  * bind_transceiver handler
@@ -34,8 +33,6 @@ ESME.prototype.bindTransceiver = function (pdu) {
     function () {
       this.session.send(pdu.response());
       this.session.resume();
-      this.sendSYSInterval = setInterval(this.sendSYS.bind(this), 60000);
-      this.sendSYS();
     }.bind(this),
     function (err) {
       console.error('Authorization with', pdu.system_id, pdu.password, 'failed', err);
@@ -46,6 +43,12 @@ ESME.prototype.bindTransceiver = function (pdu) {
     }.bind(this)
   );
 };
+/**
+ *
+ */
+ESME.prototype.disconnect = function (pdu) {
+};
+
 /**
  * Asynchronous function for checking system's authorization
  */
@@ -262,25 +265,18 @@ ESME.prototype.sendUSSDResponse = function (ussdNum, text) {
   });
 };
 
-ESME.prototype.sendSYS = function () {
-  var promises = [];
-  promises.push(this.modemManager.getSignal());
-  promises.push(this.storage.getOutboxLength());
-  Q.all(promises).then(
-    function (results) {
-      this.session.deliver_sm({
-        service_type: 'SYS',
-        source_addr: this.modemManager.IMSI,
-        source_addr_ton: 0,
-        source_addr_npi: 1,
-        destination_addr: this.modemManager.IMSI,
-        destination_addr_ton: 0,
-        destination_addr_npi: 1,
-        short_message: util.format("Signal: %d Queue: %d", results[0].db, results[1].cnt),
-        data_coding: 0
-      });
-    }.bind(this)
-  );
+ESME.prototype.sendSYS = function (str) {
+  this.session.deliver_sm({
+    service_type: 'SYS',
+    source_addr: this.modemManager.IMSI,
+    source_addr_ton: 0,
+    source_addr_npi: 1,
+    destination_addr: this.modemManager.IMSI,
+    destination_addr_ton: 0,
+    destination_addr_npi: 1,
+    short_message: str,
+    data_coding: 0
+  });
 };
 /**
  * Sends statistics to ESME

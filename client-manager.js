@@ -1,4 +1,6 @@
 var ESME = require('./esme');
+var Q = require('q');
+var util = require('util');
 
 function ClientsManager(storage, modemManager) {
   this.clients = [];
@@ -9,6 +11,8 @@ function ClientsManager(storage, modemManager) {
   modemManager.on('send_fail', this.handleSendFailure.bind(this));
   modemManager.on('status_report', this.handleReport.bind(this));
   modemManager.on('stat', this.handleStat.bind(this));
+
+  this.sysInterval = setInterval(this.sendSYS.bind(this), 10000);
 }
 
 ClientsManager.prototype.addClientSession = function (sess) {
@@ -24,6 +28,7 @@ ClientsManager.prototype.deleteClientBySession = function (sess) {
   var i;
   for (i = 0; i < this.clients.length; ++i) {
     if (this.clients[i].sessionEquals(sess)) {
+      this.clients[i].disconnect();
       this.clients.splice(i, 1);
       return;
     }
@@ -54,6 +59,22 @@ ClientsManager.prototype.handleStat = function(stat) {
   this.clients.forEach(function (client) {
     client.sendStat(stat);
   });
+};
+/**
+ *
+ */
+ClientsManager.prototype.sendSYS = function () {
+  var promises = [];
+  promises.push(this.modemManager.getSignal());
+  promises.push(this.storage.getOutboxLength());
+  Q.all(promises).then(
+    function (results) {
+      var str = util.format("Signal: %d Queue: %d", results[0].db, results[1].cnt);
+      this.clients.forEach(function (client) {
+        client.sendSYS(str);
+      });
+    }.bind(this)
+  );
 };
 
 module.exports = ClientsManager;
