@@ -9,13 +9,12 @@ function ModemManager(opts, storage) {
   // Call the super constructor.
   EventEmitter.call(this);
 
-  opts.commandsTimeout = 15000;
+  opts.commandsTimeout = 30000;
   this.__defineGetter__('storage', function () { return storage; });
   this.__defineGetter__('IMSI', function () { return this.modemInfo ? this.modemInfo.imsi : ''; }.bind(this));
   this.__defineGetter__('opts', function () { return opts; });
   this.__defineGetter__('ports', function () { return opts.ports; });
   this.sendQueue = new SendQueue(this, this.storage, opts);
-  this.reconnecting = false;
 
   this.createModem();
   this.logger = rufus.getLogger();
@@ -23,6 +22,9 @@ function ModemManager(opts, storage) {
 
   this.statPeriod = opts.statPeriod || 10*60*1000;
   this.statInterval = setInterval(this.sendStat.bind(this), this.statPeriod);
+
+  this.lastTimeout = 0;
+  this.timeouts = 0;
 
   return this;
 }
@@ -199,7 +201,7 @@ ModemManager.prototype.onDisconnect = function () {
  */
 ModemManager.prototype.onError = function (err) {
   if (err.message === 'TIMEOUT') {
-    this.reconnect();
+    this.addTimeout();
   } else {
     this.logger.debug('Modem manager emitting error: %s', err.message);
     this.emit('error', err);
@@ -297,7 +299,7 @@ ModemManager.prototype.sendStat = function () {
       var statObj = {
         time: Math.floor(new Date().getTime() / 1000),
         period: this.statPeriod,
-        sent: results[0].cnt,
+        sent: results[0].cnt - results[1].cnt,
         rejected: results[1].cnt,
         queue: results[2].length,
         signal: results[3].db
@@ -305,6 +307,23 @@ ModemManager.prototype.sendStat = function () {
       this.emit('stat', statObj);
     }.bind(this)
   );
+};
+
+
+/**
+* Adds failure to failure count
+*/
+ModemManager.prototype.addTimeout = function () {
+  if ((new Date()).getTime() - this.lastTimeout > 1800000) {
+    this.timeouts = 0;
+  }
+  this.lastTimeout = (new Date()).getTime();
+  ++this.timeouts;
+
+  if (this.timeouts >= 3) {
+    this.timeouts = 0;
+    this.reconnect();
+  }
 };
 
 module.exports.ModemManager = ModemManager;

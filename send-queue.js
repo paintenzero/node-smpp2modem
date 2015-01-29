@@ -9,6 +9,7 @@ function SendQueue(modemManager, storage, options) {
   this.__defineGetter__('storage', function () { return storage; });
   this.__defineGetter__('failureTimeout', function () { return options.failure_timeout || 5000; });
   this.__defineGetter__('maxFailures', function () { return options.max_failures || 3; });
+  this.__defineGetter__('sendInterval', function () { return options.send_interval || 5000; });
 
   this.queue = [];
   this.lastFailure = 0;
@@ -44,7 +45,7 @@ SendQueue.prototype.add = function (message) {
       message.id = id;
       deferred.resolve(id);
       this.queue.push(message);
-      if (this.queue.length === 1) {
+      if (this.idle || this.queue.length === 1) {
         this.startSending();
       }
     }.bind(this),
@@ -61,11 +62,11 @@ SendQueue.prototype.add = function (message) {
 SendQueue.prototype.startSending = function () {
   if (!this.idle) {
     logger.error('Called start processing while not idling');
-    return;
+    // return;
   }
   this.idle = false;
   this.sendNext();
-}
+};
 
 SendQueue.prototype.sendNext = function () {
   if (this.modemManager.reconnecting) {
@@ -87,7 +88,7 @@ SendQueue.prototype.sendNext = function () {
         this.storage.setMessageSent(message, references);
         this.failures = 0;
         this.queue.splice(0, 1);
-        setTimeout(this.sendNext.bind(this), 1000);
+        setTimeout(this.sendNext.bind(this), this.sendInterval);
       }.bind(this)
     ).catch(
       function (err) {
@@ -99,7 +100,7 @@ SendQueue.prototype.sendNext = function () {
         }
         if (parseInt(message.destination_type, 16) === 0x81 || message.failures >= this.maxFailures) {
           this.queue.splice(0, 1);
-          Q.nextTick(this.sendNext.bind(this));
+          setTimeout(this.sendNext.bind(this), this.sendInterval);
           this.modemManager.emit('send_fail', message);
           logger.debug('Giving up sending message');
           this.storage.giveUpSendingMessage(message, err.message).fail(
@@ -111,7 +112,7 @@ SendQueue.prototype.sendNext = function () {
           this.addFailure();
         } else {
           logger.debug('Will retry sending message later');
-          setTimeout(this.sendNext.bind(this), 2000);
+          setTimeout(this.sendNext.bind(this), this.sendInterval);
           this.storage.markFailure(message).fail(
             function (err) {
               logger.error('Mark failure error', err);
