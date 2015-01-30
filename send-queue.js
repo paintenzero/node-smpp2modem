@@ -62,7 +62,7 @@ SendQueue.prototype.add = function (message) {
 SendQueue.prototype.startSending = function () {
   if (!this.idle) {
     logger.error('Called start processing while not idling');
-    // return;
+    return;
   }
   this.idle = false;
   this.sendNext();
